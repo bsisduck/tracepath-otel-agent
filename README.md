@@ -137,3 +137,7 @@ tracepath-otel-agent/
 ## License
 
 MIT — see [LICENSE](LICENSE). Derived from the upstream Traceway OTel Agent (© dusanstanojeviccs, MIT).
+
+## Contributing
+
+`main` is protected: all changes go through pull requests. CI (shell + YAML + collector-config lint) must pass before merge.
