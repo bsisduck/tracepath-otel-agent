@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://tracepath.dev"><img src="https://raw.githubusercontent.com/bsisduck/tracepath/main/logo-small-favicon.png" alt="TracePath" width="140" /></a>
+  <a href="https://tracepath.dev"><strong>TracePath</strong></a>
 </p>
 
 <p align="center">
