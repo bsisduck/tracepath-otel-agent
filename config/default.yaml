@@ -1,0 +1,108 @@
+# TracePath OTel Agent — default collector configuration.
+#
+# A pre-configured OpenTelemetry Collector distribution that scrapes host
+# metrics every 60s and (when TRACEPATH_LOG_PATHS is set) tails log files,
+# exporting OTLP/HTTP to the TracePath ingest endpoint.
+#
+# Environment variables (substituted by the installer):
+#   TRACEPATH_TOKEN          project token, sent as Authorization: Bearer
+#   TRACEPATH_ENDPOINT       defaults to https://cloud.tracepath.dev/api/otel
+#   TRACEPATH_SERVICE_NAME   service.name resource attribute (default: hostname)
+#   TRACEPATH_STORAGE_DIR    disk-backed queue directory
+#
+# Mirrors upstream tracewayapp/traceway-otel-agent config/default.yaml (MIT).
+
+extensions:
+  headers_setter/tracepath:
+    headers:
+      - key: Authorization
+        value: "Bearer ${env:TRACEPATH_TOKEN}"
+  file_storage/tracepath:
+    directory: ${env:TRACEPATH_STORAGE_DIR}
+
+receivers:
+  hostmetrics/tracepath:
+    collection_interval: 60s
+    scrapers:
+      cpu:
+      memory:
+      disk:
+      filesystem:
+        exclude_fs_types:
+          fs_types:
+            - autofs
+            - binfmt_misc
+            - bpf
+            - cgroup2
+            - configfs
+            - debugfs
+            - devpts
+            - procfs
+            - pstore
+            - securityfs
+            - selinuxfs
+            - sysfs
+            - tracefs
+      network:
+      load:
+      paging:
+      processes:
+      system:
+  filelog/tracepath:
+    include:
+      - ${env:TRACEPATH_LOG_PATHS}
+    start_at: end
+    storage: file_storage/tracepath
+
+processors:
+  resourcedetection/tracepath:
+    detectors: [env, system]
+    timeout: 2s
+    override: false
+  resource/tracepath:
+    attributes:
+      - key: service.name
+        value: ${env:TRACEPATH_SERVICE_NAME}
+        action: upsert
+  batch/tracepath:
+    timeout: 10s
+    send_batch_size: 512
+
+exporters:
+  otlphttp/tracepath:
+    endpoint: ${env:TRACEPATH_ENDPOINT}
+    auth:
+      authenticator: headers_setter/tracepath
+    compression: gzip
+    sending_queue:
+      enabled: true
+      storage: file_storage/tracepath
+    retry_on_failure:
+      enabled: true
+
+service:
+  extensions:
+    - headers_setter/tracepath
+    - file_storage/tracepath
+  telemetry:
+    logs:
+      level: info
+  pipelines:
+    metrics:
+      receivers:
+        - hostmetrics/tracepath
+      processors:
+        - resourcedetection/tracepath
+        - resource/tracepath
+        - batch/tracepath
+      exporters:
+        - otlphttp/tracepath
+    logs:
+      receivers:
+        - filelog/tracepath
+      processors:
+        - resourcedetection/tracepath
+        - resource/tracepath
+        - batch/tracepath
+      exporters:
+        - otlphttp/tracepath

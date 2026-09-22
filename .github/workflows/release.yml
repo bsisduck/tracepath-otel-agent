@@ -1,0 +1,44 @@
+name: Release
+
+# Tag-driven release skeleton. Builds the agent distribution from the OCB
+# builder config maintained in the main monorepo / upstream repo. The job is
+# gated behind the protected `release` environment (manual approval) — flips
+# to a full OCB build once the builder config is vendored here.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and release
+    runs-on: ubuntu-latest
+    environment: release # requires manual approval in repo settings
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+      - name: Install OpenTelemetry Collector Builder
+        run: go install go.opentelemetry.io/collector/cmd/builder@v0.159.0
+      - name: Build agent (placeholder until builder-config.yaml is vendored)
+        run: |
+          if [ -f builder-config.yaml ]; then
+            builder --config=builder-config.yaml
+          else
+            echo "builder-config.yaml not vendored yet; skipping OCB build"
+            echo "See https://github.com/tracewayapp/traceway-otel-agent for the upstream build recipe"
+          fi
+      - name: Create GitHub release with artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if compgen -G "dist/*" > /dev/null; then
+            gh release create "${GITHUB_REF_NAME}" dist/* --generate-notes
+          else
+            gh release create "${GITHUB_REF_NAME}" --notes "Release ${GITHUB_REF_NAME} — artifacts not built yet; see README build-from-source section."
+          fi

@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint (shell + yaml)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shell syntax check
+        run: |
+          find . -name "*.sh" -type f -print0 | xargs -0 -n1 bash -n
+      - name: ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        continue-on-error: true # advisory until install scripts land here
+      - name: Validate YAML
+        run: python3 -c "import yaml,glob,sys; [yaml.safe_load(open(f)) for f in glob.glob('.github/workflows/*.yml')+glob.glob('config/*.yaml')]; print('YAML OK')"
+      - name: Validate collector config structure
+        run: |
+          python3 - <<'EOF'
+          import yaml
+
+          with open("config/default.yaml") as f:
+              cfg = yaml.safe_load(f)
+
+          for section in ("receivers", "processors", "exporters", "service"):
+              assert section in cfg, f"missing required collector section: {section}"
+
+          exporters = cfg["exporters"]
+          assert any("otlphttp" in k for k in exporters), "missing otlphttp exporter"
+          otlp = next(v for k, v in exporters.items() if "otlphttp" in k)
+          assert "endpoint" in otlp, "otlphttp exporter must set an endpoint"
+
+          pipelines = cfg["service"]["pipelines"]
+          assert "metrics" in pipelines, "missing metrics pipeline"
+          print("collector config structure OK")
+          EOF
